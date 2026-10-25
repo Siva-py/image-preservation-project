@@ -95,3 +95,7 @@ dist/
 *.bak
 *.swp
 *.swo
+
+#13 Experiments and data files
+experiments/
+data/
