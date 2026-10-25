@@ -28,12 +28,35 @@ SUPPORTED_ARCHIVE_EXTENSIONS = {
 }
 
 
+
 @dataclass(frozen=True)
 class InputConfig:
     max_archive_files: int = 10_000
     max_extracted_size_mb: int = 2048
     max_image_pixels: int = 100_000_000
     recursive: bool = True
+
+    def validate(self) -> None:
+        """Validate the input-processing configuration."""
+
+        if self.max_archive_files <= 0:
+            raise ValueError(
+                "max_archive_files must be greater than zero."
+            )
+
+        if self.max_extracted_size_mb <= 0:
+            raise ValueError(
+                "max_extracted_size_mb must be greater than zero."
+            )
+
+        if self.max_image_pixels <= 0:
+            raise ValueError(
+                "max_image_pixels must be greater than zero."
+            )
+
+        if not isinstance(self.recursive, bool):
+            raise ValueError("recursive must be a boolean.")
+
 
 
 @dataclass
@@ -50,7 +73,8 @@ class InputService:
     """Discover, extract, and validate supported image inputs."""
 
     def __init__(self, config: InputConfig | None = None):
-        self.config = config or InputConfig()
+        self.config = config if config is not None else InputConfig()
+        self.config.validate()
         self._temp_dir = None
 
     def __enter__(self):
