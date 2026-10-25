@@ -376,9 +376,23 @@ def run_service(
     if not source.is_dir():
         raise NotADirectoryError(f"Input directory does not exist: {source}")
 
+    destination = (
+        Path(output_dir).expanduser().resolve()
+        if output_dir is not None else None
+    )
+
+    def is_inside(path: Path, parent: Path) -> bool:
+        try:
+            path.resolve().relative_to(parent.resolve())
+            return True
+        except ValueError:
+            return False
+
     image_paths = sorted(
         p for p in source.rglob("*")
-        if p.is_file() and p.suffix.lower() in SUPPORTED_EXTENSIONS
+        if p.is_file()
+        and p.suffix.lower() in SUPPORTED_EXTENSIONS
+        and (destination is None or not is_inside(p, destination))
     )
     if not image_paths:
         raise ValueError(f"No supported image files found in: {source}")

@@ -1,11 +1,9 @@
-
 from __future__ import annotations
-
+import time
 import csv
 import hashlib
 import json
 import shutil
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -127,8 +125,18 @@ class ImageQualityFilteringService:
 
         with InputService() as input_service:
             result = input_service.process(source)
+            def is_inside(path: Path, parent: Path) -> bool:
+                try:
+                    path.resolve().relative_to(parent.resolve())
+                    return True
+                except ValueError:
+                    return False
 
             skipped = [str(path) for path in result.skipped_files]
+            input_image_paths = [
+                path for path in result.image_paths
+                if not is_inside(path, output_dir)
+            ]
 
             for path in result.image_paths:
                 record = {
