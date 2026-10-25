@@ -39,6 +39,57 @@ from src.services.aiDetectionService import (
 )
 
 
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
+
+
+def get_image_files(directory: Path) -> list[Path]:
+    """Return supported image files beneath a directory, recursively."""
+    if not directory.is_dir():
+        return []
+    return sorted(
+        path for path in directory.rglob("*")
+        if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
+    )
+
+
+def total_file_size_bytes(paths: list[Path]) -> int:
+    """Sum file sizes for existing files, ignoring files that disappear."""
+    total = 0
+    for path in paths:
+        try:
+            total += path.stat().st_size
+        except OSError:
+            continue
+    return total
+
+
+def normalize_count(value: Any) -> int | None:
+    """Normalize common report representations of an image count."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, (list, tuple, set)):
+        return len(value)
+    if isinstance(value, dict):
+        for key in ("count", "total", "images", "readable_images"):
+            nested = value.get(key)
+            if isinstance(nested, int) and not isinstance(nested, bool):
+                return nested
+        return len(value)
+    return None
+
+
+def write_dashboard_report(output_root: Path, dashboard: dict[str, Any]) -> Path:
+    """Write frontend-facing metrics to a separate JSON file."""
+    report_path = output_root / "dashboard_report.json"
+    report_path.write_text(
+        json.dumps(dashboard, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return report_path
+
+
 def parse_args() -> argparse.Namespace:
     # main.py lives in src/ and is run from the repository root with python -m src.main.
     project_root = Path(__file__).resolve().parent.parent
@@ -309,6 +360,12 @@ def main() -> int:
     final_dataset_dir = output_root / "final_dataset"
     output_root.mkdir(parents=True, exist_ok=True)
 
+    # Capture original input metrics before compression/filtering changes anything.
+    original_image_paths = get_image_files(input_dir)
+    original_image_count = len(original_image_paths)
+    original_size_bytes = total_file_size_bytes(original_image_paths)
+    original_size_mb = original_size_bytes / (1024 * 1024)
+
     results: dict[str, Any] = {
         "input_dir": str(input_dir),
         "output_root": str(output_root),
@@ -457,6 +514,8 @@ def main() -> int:
         print("Information preservation completed.")
         print(f"Selected images: {len(selected_image_paths)}")
 
+        ai_report: dict[str, Any] = {}
+
         # STAGE 4: AI detection (optional, runs only after selection)
         print("\n" + "=" * 60)
         print("[STAGE 4/4] AI IMAGE DETECTION")
@@ -518,6 +577,96 @@ def main() -> int:
             print(f"Final dataset directory: {final_dataset_dir}")
             print(f"Final dataset images: {len(final_image_paths)}")
 
+        # Build a compact frontend-facing dashboard report.
+        compression_summary = results.get("compression", {}).get("summary", {})
+        compression_status = results.get("compression", {}).get("status", "unknown")
+        if compression_status == "completed":
+            compressed_size_kb = compression_summary.get("selected_total_kb")
+            if compressed_size_kb is None:
+                compressed_size_kb = original_size_bytes / 1024
+            compressed_size_mb = float(compressed_size_kb) / 1024
+            size_saved_mb = (
+                float(compression_summary.get("original_total_kb", 0))
+                - float(compression_summary.get("selected_total_kb", 0))
+            ) / 1024
+            size_reduction_percent = compression_summary.get(
+                "overall_size_reduction_percent"
+            )
+        else:
+            compressed_size_mb = original_size_mb
+            size_saved_mb = 0.0
+            size_reduction_percent = 0.0
+
+        quality_images = quality_report.get("images", [])
+        blurry_removed_count = sum(
+            1 for record in quality_images
+            if record.get("removal_reason") == "blurry"
+        )
+        duplicate_removed_count = sum(
+            1 for record in quality_images
+            if record.get("removal_reason") == "duplicate_lower_quality"
+        )
+
+        ai_summary = ai_report.get("summary", {}) if args.detect_ai else {}
+        potential_ai_images = (
+            ai_summary.get("likely_ai_generated") if args.detect_ai else None
+        )
+
+        final_size_bytes = total_file_size_bytes(get_image_files(final_dataset_dir))
+        dashboard = {
+            "generated_by": "image_preservation_pipeline",
+            "input": {
+                "image_count": original_image_count,
+                "total_size_mb": round(original_size_mb, 4),
+            },
+            "compression": {
+                "status": compression_status,
+                "size_after_compression_mb": round(compressed_size_mb, 4),
+                "size_saved_mb": round(size_saved_mb, 4),
+                "size_reduction_percent": (
+                    round(float(size_reduction_percent), 4)
+                    if size_reduction_percent is not None else None
+                ),
+            },
+            "quality_filtering": {
+                "status": results.get("quality_filtering", {}).get("status", "unknown"),
+                "blurry_images_removed": blurry_removed_count,
+                "duplicate_images_removed": duplicate_removed_count,
+                "images_removed_total": (
+                    results.get("quality_filtering", {})
+                    .get("summary", {}).get("images_removed", 0)
+                ),
+            },
+            "ai_detection": {
+                "status": results.get("ai_detection", {}).get("status", "unknown"),
+                "potential_ai_images": potential_ai_images,
+            },
+            "information_preservation": {
+                "status": results.get("information_preservation", {}).get("status", "unknown"),
+                "configured_retention_rate_percent": round(args.retain_ratio * 100, 4),
+                "input_image_count": quality_report.get("summary", {}).get("images_retained", 0),
+                "readable_image_count": normalize_count(
+                    information_report.get("readable_images")
+                ),
+                "selected_image_count": len(selected_image_paths),
+                "actual_retention_rate_percent": None,
+            },
+            "final_dataset": {
+                "image_count": len(final_image_paths),
+                "total_size_mb": round(final_size_bytes / (1024 * 1024), 4),
+                "directory": str(final_dataset_dir),
+            },
+        }
+        # Actual retention uses the number of readable images as the denominator.
+        readable_count = dashboard["information_preservation"]["readable_image_count"]
+        if isinstance(readable_count, (int, float)) and readable_count > 0:
+            dashboard["information_preservation"]["actual_retention_rate_percent"] = round(
+                len(selected_image_paths) / readable_count * 100, 4
+            )
+
+        dashboard_report_path = write_dashboard_report(output_root, dashboard)
+        results["dashboard_report_path"] = str(dashboard_report_path)
+
         report_path = write_pipeline_report(output_root, results)
         print("\n" + "=" * 60)
         print("PIPELINE COMPLETED SUCCESSFULLY")
@@ -528,6 +677,7 @@ def main() -> int:
         print(f"AI detection: {'enabled' if args.detect_ai else 'skipped'}")
         print(f"Final dataset images: {results['final_dataset']['image_count']}")
         print(f"Pipeline report: {report_path}")
+        print(f"Dashboard report: {dashboard_report_path}")
         return 0
 
     except Exception as exc:
