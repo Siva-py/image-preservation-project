@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ImagePreserve</title><link rel="stylesheet" href="style.css"></head>
+<body><aside class="sidebar"><a class="brand" href="#" data-page="home"><b>A</b> ImagePreserve</a><nav><button class="active" data-page="home">⌂ &nbsp; Home</button><button data-page="process">▣ &nbsp; Process Images</button><button data-page="results">▥ &nbsp; Results</button><button data-page="gallery">▧ &nbsp; Image Gallery</button></nav><div class="side-bottom team-bottom">
+  <div class="team-heading">DEV TEAM</div>
+  <a class="team-member" href="mailto:d.m.siva2004@gmail.com"><span class="team-avatar">S</span><span><b>SIVA D M</b><small>d.m.siva2004@gmail.com</small></span></a>
+  <a class="team-member" href="mailto:bhagavadhb@gmail.com"><span class="team-avatar">B</span><span><b>BHAGAVADH B</b><small>bhagavadhb@gmail.com</small></span></a>
+</div></aside>
+<main><header><div><small class="eyebrow">IMAGE DATASET CURATION</small><h1 id="page-title">Preserve what matters.</h1></div></header>
+<section class="page active" id="home"><div class="hero"><div><small class="eyebrow">SMARTER IMAGE CURATION</small><h2>Less noise.<br><span>More information.</span></h2><p>A multi-stage workflow to reduce image datasets while preserving the most informative visuals.</p><button class="primary" data-go="process">Start processing ↗</button> <button class="secondary" data-go="results">Explore results</button><div class="steps">01 / COMPRESS　　02 / FILTER　　03 / PRESERVE</div></div><div class="art carousel-art" aria-label="Rotating image preview carousel">
+<div class="image-carousel" id="home-carousel" aria-live="off">
+<div class="carousel-ring" id="carousel-slots"></div>
+</div>
+
+</div></div>
+<div class="section-title"><div><small class="eyebrow">THE WORKFLOW</small><h3>One pipeline. Four purposeful stages.</h3></div><span>Built for information-preserving reduction</span></div><div class="features"><article><label class="blue">↘</label><small>01 / SIZE</small><h3>Compress</h3><p>Reduce storage footprint while keeping image quality in view.</p></article><article><label class="green">⌕</label><small>02 / QUALITY</small><h3>Filter low-quality</h3><p>Identify blurry images and remove duplicate candidates.</p></article><article><label class="purple">✧</label><small>03 / SIGNAL</small><h3>Preserve information</h3><p>Select a representative subset using a retention target.</p></article><article><label class="pink">◎</label><small>04 / OPTIONAL</small><h3>AI detection</h3><p>Optionally flag images that may be AI-generated.</p></article></div></section>
+<section class="page" id="process"><div class="intro"><div><small class="eyebrow">PIPELINE WORKSPACE</small><p>Upload a dataset and configure the pipeline.</p></div><span class="pill">STEP 01 · CONFIGURE</span></div><div class="columns"><article class="panel"><h3>Input dataset</h3><p>Choose individual images or select a folder to include its supported images in this run.</p><div class="drop" id="drop"><input id="files" type="file" accept=".jpg,.jpeg,.png,.webp" multiple hidden>
+<input id="folder-files" type="file" accept=".jpg,.jpeg,.png,.webp" webkitdirectory directory multiple hidden>
+<div class="upload">↑</div>
+<h3>Drop your images here</h3>
+<p>
+    <button id="browse" class="link" type="button">Choose files</button>
+    or
+    <button id="browse-folder" class="link" type="button">Choose folder</button>
+</p>
+<small>JPG, JPEG, PNG, WEBP · Select multiple files or an entire folder</small></div><div class="file-summary"><b id="file-count">No files selected</b><span id="file-size">Choose images to preview them here.</span><button id="clear" class="link">Clear</button></div><div id="previews" class="previews"></div><p class="note">Selected images will be uploaded to the processing pipeline when you run it.</p></article><article class="panel"><h3>Pipeline settings</h3><p>Configure the run before processing.</p><div class="setting"><b>Compression</b><small>STAGE 01</small><label class="toggle">Enable compression <input id="compression" type="checkbox" checked><i></i></label>
+<div class="compression-options" id="compression-options">
+  <label class="field-label" for="target-size-kb">Target image size (KB)</label>
+  <input
+    id="target-size-kb"
+    class="setting-input"
+    type="number"
+    min="1"
+    step="1"
+    inputmode="numeric"
+    placeholder="e.g. 200"
+    value="200"
+    aria-describedby="target-size-note"
+  >
+  <p class="note option-note" id="target-size-note">Sets the maximum target size used by the compression stage.</p>
+</div>
+</div><div class="setting"><b>Information preservation</b><small>STAGE 03</small><div class="range-title">Retention target <strong id="retention-value">80%</strong></div><input id="retention" type="range" min="10" max="100" value="80"><div class="range-label"><span>10% · Compact</span><span>100% · Keep all</span></div></div><div class="setting"><b>AI detection <small>OPTIONAL</small></b><label class="toggle">Detect potential AI images <input id="ai" type="checkbox"><i></i></label></div><button class="primary full" id="preview-run">Run pipeline ↗</button>
+<div id="pipeline-progress" class="pipeline-progress" hidden role="status" aria-live="polite">
+  <div class="progress-status-row"><b id="progress-title">Preparing pipeline…</b><span id="progress-percent">0%</span></div>
+  <div class="progress-track" id="progress-bar" role="progressbar" aria-label="Simulated pipeline progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+  <p id="progress-message" class="progress-message">Uploading images and processing them. Progress is an estimate.</p>
+  <div id="progress-error" class="progress-error" hidden></div>
+</div>
+<p class="note">Keep this page open while the pipeline processes your images.</p></article></div></section>
+<section class="page" id="results"><div class="intro"><div><small class="eyebrow">RUN SUMMARY</small><p>Results update after a successful pipeline run, or you can load a dashboard JSON report.</p></div><button class="secondary" id="load">Load dashboard JSON</button><input type="file" id="json-file" accept=".json,application/json" hidden></div><div class="metrics"><article><span>Original images</span><b id="orig-count">—</b><small>Input dataset</small></article><article><span>Original size</span><b id="orig-size">—</b><small>Before processing</small></article><article><span>Final dataset</span><b id="final-count">—</b><small>Selected images</small></article><article><span>Space saved</span><b id="saved">—</b><small id="reduction">Run the pipeline to see actual results.</small></article></div><div class="columns results-columns"><article class="panel"><h3>Pipeline breakdown</h3><div class="stage"><label class="blue">↘</label><div><b>Compression</b><small id="comp-status">Completed</small></div><strong id="comp-reduction">1.22%</strong></div><div class="stage"><label class="green">⌕</label><div><b>Quality filtering</b><small id="quality-status">Completed · 392 images passed</small></div><strong><i id="blurry">2</i> blurry</strong></div><div class="stage"><label class="purple">✧</label><div><b>Information preservation</b><small id="preserve-status">80% target retention</small></div><strong id="actual">80.10%</strong></div><div class="stage"><label class="pink">◎</label><div><b>AI detection</b><small id="ai-status">Skipped · Not run</small></div><strong id="ai-count">—</strong></div></article><article class="panel center"><h3>Retention overview</h3><p>Selected images vs. readable input</p><div class="donut" id="donut"><div><b id="donut-value">80.10%</b><small>actual retention</small></div></div><div class="legend"><span>● Selected images <b id="selected">314</b></span><span>● Not selected <b id="not-selected">78</b></span></div></article></div><article class="panel final"><div class="check">✓</div><div><b>Final dataset ready</b><p id="final-summary">314 images · 37.60 MB · Information preservation completed.</p></div><div class="final-actions"><button class="secondary" id="export">Export dashboard JSON ↓</button><button class="primary" id="download-final" disabled>Download final dataset ZIP ↓</button></div></article><div class="combined-analytics"><div class="section-heading"><small class="eyebrow">DATA EXPLORER</small><h2>Dataset analytics</h2><p>Visual breakdown of size reduction and image retention for this run.</p></div><div class="columns"><article class="panel"><h3>Dataset size</h3><p>Original vs final dataset (MB)</p><div class="bars"><div><span id="bar-original-label">47.57 MB</span><i id="bar-original" style="height:100%"></i><small>Original</small></div><div><span id="bar-final-label">37.60 MB</span><i id="bar-final" class="mint" style="height:79%"></i><small>Final</small></div></div></article><article class="panel"><h3>Image breakdown</h3><p>From the current dashboard report</p><div class="breakdown"><div class="donut" id="breakdown-donut"><div><b id="breakdown-total">394</b><small>Total input</small></div></div><div class="legend vertical"><span>● Final dataset <b id="break-final">314</b></span><span>● Blurry removed <b id="break-blurry">2</b></span><span>● Duplicates removed <b id="break-duplicates">0</b></span><span>● Other / not selected <b id="break-other">78</b></span></div></div></article></div>
+</div>
+</section>
+<section class="page" id="gallery"><div class="section-heading"><small class="eyebrow">IMAGE EXPLORER</small><p>Browse the original images received by the pipeline or the final selected images retained in the dataset.</p></div>
+<div class="gallery-panel panel"><div class="gallery-tabs" role="tablist" aria-label="Image gallery type"><button class="gallery-tab active" id="tab-original" type="button" role="tab" aria-selected="true" aria-controls="original-gallery">Original images <span id="original-gallery-count">Waiting for a run</span></button><button class="gallery-tab" id="tab-final" type="button" role="tab" aria-selected="false" aria-controls="final-gallery">Final selected <span id="final-gallery-count">Selected dataset</span></button><button class="primary gallery-download" id="download-final-gallery" disabled>Download final dataset ZIP ↓</button></div>
+<div class="gallery-scrollbox"><div class="image-gallery active" id="original-gallery" role="tabpanel" aria-labelledby="tab-original"><p class="gallery-empty">Original images will appear here after processing.</p></div><div class="image-gallery" id="final-gallery" role="tabpanel" aria-labelledby="tab-final" hidden><p class="gallery-empty">Final selected images will appear here after processing.</p></div></div></div></section>
+<footer>IMAGEPRESERVE · DATASET CURATION <span>Designed for clarity. Built for preservation.</span></footer></main><div id="toast" class="toast"></div><script src="script.js"></script></body></html>

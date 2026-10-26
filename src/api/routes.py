@@ -11,6 +11,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
+from fastapi.responses import FileResponse
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from src.api.schemas import PipelineConfig
 
@@ -183,6 +185,92 @@ async def execute_pipeline(input_dir: Path, config: PipelineConfig) -> dict:
 
 
 
+def get_output_directory(configured_output_dir: str = "data/output") -> Path:
+    output_dir = Path(configured_output_dir).expanduser()
+    if not output_dir.is_absolute():
+        output_dir = PROJECT_ROOT / output_dir
+    return output_dir.resolve()
+
+
+def list_dataset_images(kind: str) -> list[str]:
+    output_dir = get_output_directory()
+    if kind == "original":
+        image_dir = output_dir / "original_images"
+    elif kind == "final":
+        image_dir = output_dir / "final_dataset"
+    else:
+        raise HTTPException(status_code=404, detail="Unknown dataset image category.")
+
+    if not image_dir.is_dir():
+        return []
+
+    return sorted(
+        path.name for path in image_dir.iterdir()
+        if path.is_file() and path.suffix.lower() in ALLOWED_EXTENSIONS
+    )
+
+
+@router.get("/dataset-images/{kind}")
+async def get_dataset_image_list(kind: str):
+    """List original input images or final selected images from the latest upload run."""
+    if kind not in {"original", "final"}:
+        raise HTTPException(status_code=404, detail="Use 'original' or 'final'.")
+    return list_dataset_images(kind)
+
+
+@router.get("/dataset-images/{kind}/{filename}")
+async def get_dataset_image(kind: str, filename: str):
+    """Serve a single image from the original or final dataset gallery."""
+    if kind not in {"original", "final"}:
+        raise HTTPException(status_code=404, detail="Use 'original' or 'final'.")
+
+    safe_filename = Path(filename).name
+    if safe_filename != filename:
+        raise HTTPException(status_code=400, detail="Invalid filename.")
+
+    directory_name = "original_images" if kind == "original" else "final_dataset"
+    image_path = (get_output_directory() / directory_name / safe_filename).resolve()
+    allowed_root = (get_output_directory() / directory_name).resolve()
+
+    try:
+        image_path.relative_to(allowed_root)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid image path.")
+
+    if not image_path.is_file() or image_path.suffix.lower() not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=404, detail="Image not found.")
+
+    return FileResponse(image_path)
+
+
+@router.get("/final-dataset/download")
+async def download_final_dataset():
+    """Create and return a ZIP containing the latest final selected dataset."""
+    output_dir = get_output_directory()
+    final_dir = output_dir / "final_dataset"
+
+    if not final_dir.is_dir():
+        raise HTTPException(status_code=404, detail="The final dataset is not available yet.")
+
+    image_paths = [
+        path for path in final_dir.iterdir()
+        if path.is_file() and path.suffix.lower() in ALLOWED_EXTENSIONS
+    ]
+    if not image_paths:
+        raise HTTPException(status_code=404, detail="The final dataset contains no images.")
+
+    zip_path = output_dir / "final_dataset.zip"
+    with ZipFile(zip_path, "w", compression=ZIP_DEFLATED) as archive:
+        for image_path in image_paths:
+            archive.write(image_path, arcname=image_path.name)
+
+    return FileResponse(
+        zip_path,
+        media_type="application/zip",
+        filename="final_dataset.zip",
+    )
+
+
 @router.post("/process-folder")
 async def process_folder(folder_path: str, config: PipelineConfig):
     """Run the existing pipeline on an existing local image folder."""
@@ -282,7 +370,23 @@ async def upload_images(
             )
 
             result = await execute_pipeline(input_dir, config)
+
+            # Keep a copy of this run's original uploads for the Results gallery.
+            # This happens after the pipeline because src/main.py may clean output_dir.
+            output_root = get_output_directory(output_dir)
+            original_gallery_dir = output_root / "original_images"
+            if original_gallery_dir.exists():
+                shutil.rmtree(original_gallery_dir)
+            original_gallery_dir.mkdir(parents=True, exist_ok=True)
+
+            for image_path in sorted(input_dir.iterdir()):
+                if image_path.is_file() and image_path.suffix.lower() in ALLOWED_EXTENSIONS:
+                    shutil.copy2(image_path, original_gallery_dir / image_path.name)
+
             result["input_count"] = saved_count
+            result["original_images_url"] = "/api/dataset-images/original"
+            result["final_images_url"] = "/api/dataset-images/final"
+            result["final_dataset_download_url"] = "/api/final-dataset/download"
             return result
 
         finally:
